@@ -68,6 +68,52 @@ async def handle_list_tools() -> List[types.Tool]:
             },
         ),
         types.Tool(
+            name="get_defs",
+            description="Get symbol definitions for a specific file",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "Path of the file relative to source root"},
+                },
+                "required": ["path"],
+            },
+        ),
+        types.Tool(
+            name="get_history",
+            description="Get revision history for a file or directory",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "Path relative to source root"},
+                    "withFiles": {"type": "boolean", "description": "Include list of files in each revision"},
+                    "max": {"type": "integer", "description": "Maximum entries to return (default 1000)"},
+                },
+                "required": ["path"],
+            },
+        ),
+        types.Tool(
+            name="get_annotations",
+            description="Get blame/annotation information for a file",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "Path relative to source root"},
+                },
+                "required": ["path"],
+            },
+        ),
+        types.Tool(
+            name="list_directory",
+            description="List entries in a directory",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "Path starting with / (e.g., /project/src)"},
+                },
+                "required": ["path"],
+            },
+        ),
+        types.Tool(
             name="list_projects",
             description="List all projects indexed in this OpenGrok instance",
             inputSchema={
@@ -111,6 +157,40 @@ async def handle_call_tool(
             headers = {"Accept": "text/plain"}
             content = await fetch_opengrok_api("/file/content", params={"path": path}, headers=headers)
             return [types.TextContent(type="text", text=content)]
+
+        elif name == "get_defs":
+            path = arguments.get("path")
+            if not path:
+                raise ValueError("Path is required")
+            results = await fetch_opengrok_api("/file/defs", params={"path": path})
+            return [types.TextContent(type="text", text=json.dumps(results, indent=2))]
+
+        elif name == "get_history":
+            path = arguments.get("path")
+            if not path:
+                raise ValueError("Path is required")
+            api_params = {
+                "path": path,
+                "withFiles": arguments.get("withFiles"),
+                "max": arguments.get("max")
+            }
+            api_params = {k: v for k, v in api_params.items() if v is not None}
+            results = await fetch_opengrok_api("/history", params=api_params)
+            return [types.TextContent(type="text", text=json.dumps(results, indent=2))]
+
+        elif name == "get_annotations":
+            path = arguments.get("path")
+            if not path:
+                raise ValueError("Path is required")
+            results = await fetch_opengrok_api("/annotation", params={"path": path})
+            return [types.TextContent(type="text", text=json.dumps(results, indent=2))]
+
+        elif name == "list_directory":
+            path = arguments.get("path")
+            if not path:
+                raise ValueError("Path is required")
+            results = await fetch_opengrok_api("/list", params={"path": path})
+            return [types.TextContent(type="text", text=json.dumps(results, indent=2))]
 
         elif name == "list_projects":
             projects = await fetch_opengrok_api("/projects")
