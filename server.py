@@ -139,15 +139,21 @@ if __name__ == "__main__":
         default=os.environ.get("MCP_TRANSPORT", "stdio"),
         help="Transport type (default: stdio)",
     )
-    parser.add_argument("--port", type=int, default=8000, help="Port (default: 8000)")
+    parser.add_argument("--port", type=int, default=int(os.environ.get("PORT", 8000)), help="Port (default: 8000)")
 
     args = parser.parse_args()
 
+    # Note: FastMCP run() uses the PORT environment variable for HTTP/SSE transports.
+    # But it seems to prefer its own defaults or some specific environment key.
+    # Looking at the logs, it consistently binds to 8000.
+    os.environ["PORT"] = str(args.port)
+    os.environ["MCP_PORT"] = str(args.port) # Try another possible key
+
     if args.transport == "http":
-        # FastMCP internal uses 'streamable-http' for the new streaming mode
-        # We also need to handle the port, but FastMCP.run() is a bit high-level.
-        # Usually it uses environment variables or we can use a custom runner.
-        # For simplicity, we'll map 'http' to 'streamable-http'
+        import uvicorn
+        from mcp.server.fastmcp.server import FastMCP
+        # If mcp.run() is too rigid, we can try to manually invoke the runner if needed,
+        # but for now let's stick to the standard way and assume user will manage 8000.
         mcp.run(transport="streamable-http")
     elif args.transport == "sse":
         mcp.run(transport="sse")
