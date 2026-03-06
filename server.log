@@ -1,0 +1,53 @@
+INFO:     Started server process [2278211]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8001 (Press CTRL+C to quit)
+INFO:     127.0.0.1:56196 - "GET /sse HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56212 - "POST /messages?session_id=453c733352844503b7edf9f31df9d23c HTTP/1.1" 307 Temporary Redirect
+INFO:     127.0.0.1:56212 - "POST /messages/?session_id=453c733352844503b7edf9f31df9d23c HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:56212 - "POST /messages?session_id=453c733352844503b7edf9f31df9d23c HTTP/1.1" 307 Temporary Redirect
+INFO:     127.0.0.1:56212 - "POST /messages/?session_id=453c733352844503b7edf9f31df9d23c HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:56212 - "POST /messages?session_id=453c733352844503b7edf9f31df9d23c HTTP/1.1" 307 Temporary Redirect
+INFO:     127.0.0.1:56212 - "POST /messages/?session_id=453c733352844503b7edf9f31df9d23c HTTP/1.1" 202 Accepted
+INFO:mcp.server.lowlevel.server:Processing request of type ListToolsRequest
+INFO:     127.0.0.1:56212 - "POST /messages?session_id=453c733352844503b7edf9f31df9d23c HTTP/1.1" 307 Temporary Redirect
+INFO:     127.0.0.1:56212 - "POST /messages/?session_id=453c733352844503b7edf9f31df9d23c HTTP/1.1" 202 Accepted
+INFO:mcp.server.lowlevel.server:Processing request of type CallToolRequest
+ERROR:opengrok-mcp:Error fetching http://localhost:8080/source/api/v1/projects: All connection attempts failed
+ERROR:opengrok-mcp:Tool execution failed: Failed to connect to OpenGrok: All connection attempts failed
+ERROR:    Exception in ASGI application
+Traceback (most recent call last):
+  File "/root/.openclaw/workspaces/coding-expert/projects/opengrok-mcp/venv/lib/python3.12/site-packages/uvicorn/protocols/http/h11_impl.py", line 410, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/.openclaw/workspaces/coding-expert/projects/opengrok-mcp/venv/lib/python3.12/site-packages/uvicorn/middleware/proxy_headers.py", line 60, in __call__
+    return await self.app(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/.openclaw/workspaces/coding-expert/projects/opengrok-mcp/venv/lib/python3.12/site-packages/starlette/applications.py", line 107, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/root/.openclaw/workspaces/coding-expert/projects/opengrok-mcp/venv/lib/python3.12/site-packages/starlette/middleware/errors.py", line 186, in __call__
+    raise exc
+  File "/root/.openclaw/workspaces/coding-expert/projects/opengrok-mcp/venv/lib/python3.12/site-packages/starlette/middleware/errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+  File "/root/.openclaw/workspaces/coding-expert/projects/opengrok-mcp/venv/lib/python3.12/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "/root/.openclaw/workspaces/coding-expert/projects/opengrok-mcp/venv/lib/python3.12/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/root/.openclaw/workspaces/coding-expert/projects/opengrok-mcp/venv/lib/python3.12/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/root/.openclaw/workspaces/coding-expert/projects/opengrok-mcp/venv/lib/python3.12/site-packages/starlette/routing.py", line 716, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/root/.openclaw/workspaces/coding-expert/projects/opengrok-mcp/venv/lib/python3.12/site-packages/starlette/routing.py", line 736, in app
+    await route.handle(scope, receive, send)
+  File "/root/.openclaw/workspaces/coding-expert/projects/opengrok-mcp/venv/lib/python3.12/site-packages/starlette/routing.py", line 290, in handle
+    await self.app(scope, receive, send)
+  File "/root/.openclaw/workspaces/coding-expert/projects/opengrok-mcp/venv/lib/python3.12/site-packages/starlette/routing.py", line 78, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "/root/.openclaw/workspaces/coding-expert/projects/opengrok-mcp/venv/lib/python3.12/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/root/.openclaw/workspaces/coding-expert/projects/opengrok-mcp/venv/lib/python3.12/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/root/.openclaw/workspaces/coding-expert/projects/opengrok-mcp/venv/lib/python3.12/site-packages/starlette/routing.py", line 76, in app
+    await response(scope, receive, send)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: 'NoneType' object is not callable

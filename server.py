@@ -2,12 +2,18 @@ import os
 import json
 import asyncio
 import logging
+import argparse
 from typing import Optional, List, Dict, Any
 import httpx
 from mcp.server import Server, NotificationOptions
 from mcp.server.models import InitializationOptions
 import mcp.types as types
 from mcp.server.stdio import stdio_server
+from mcp.server.sse import SseServerTransport
+from starlette.applications import Starlette
+from starlette.routing import Route, Mount
+from starlette.requests import Request
+import uvicorn
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -203,7 +209,7 @@ async def handle_call_tool(
         logger.error(f"Tool execution failed: {str(e)}")
         return [types.TextContent(type="text", text=f"Error: {str(e)}")]
 
-async def main():
+async def run_stdio():
     async with stdio_server() as (read_stream, write_stream):
         await server.run(
             read_stream,
@@ -218,5 +224,53 @@ async def main():
             ),
         )
 
+async def run_sse(host: str, port: int):
+    sse = SseServerTransport("/messages")
+
+    async def handle_sse(request: Request):
+        async with sse.connect_sse(request.scope, request.receive, request._send) as (
+            read_stream,
+            write_stream,
+        ):
+            await server.run(
+                read_stream,
+                write_stream,
+                InitializationOptions(
+                    server_name="opengrok-mcp",
+                    server_version="0.1.0",
+                    capabilities=server.get_capabilities(
+                        notification_options=NotificationOptions(),
+                        experimental_capabilities={},
+                    ),
+                ),
+            )
+
+    app = Starlette(
+        debug=True,
+        routes=[
+            Route("/sse", handle_sse),
+            Mount("/messages", sse.handle_post_message),
+        ],
+    )
+
+    config = uvicorn.Config(app, host=host, port=port, log_level="info")
+    uvicorn_server = uvicorn.Server(config)
+    await uvicorn_server.serve()
+
 if __name__ == "__main__":
-    asyncio.run(main())
+    parser = argparse.ArgumentParser(description="OpenGrok MCP Server")
+    parser.add_argument(
+        "--transport",
+        choices=["stdio", "sse"],
+        default=os.environ.get("MCP_TRANSPORT", "stdio"),
+        help="Transport type (default: stdio)",
+    )
+    parser.add_argument("--host", default="0.0.0.0", help="SSE host (default: 0.0.0.0)")
+    parser.add_argument("--port", type=int, default=8000, help="SSE port (default: 8000)")
+
+    args = parser.parse_args()
+
+    if args.transport == "stdio":
+        asyncio.run(run_stdio())
+    else:
+        asyncio.run(run_sse(args.host, args.port))
