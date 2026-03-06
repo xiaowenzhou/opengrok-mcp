@@ -6,6 +6,10 @@ This is a Model Context Protocol (MCP) server for [OpenGrok](https://oracle.gith
 
 - **`search`**: Multi-dimensional search across projects (full text, definitions, symbols, paths).
 - **`get_file`**: Retrieve raw content of any file in the index.
+- **`get_defs`**: Get symbol definitions for a specific file (functions, variables, etc.).
+- **`get_history`**: Get revision history for a file or directory.
+- **`get_annotations`**: Get blame/annotation information (line-by-line author/revision).
+- **`list_directory`**: List entries in a directory (like an explorer).
 - **`list_projects`**: Discover all indexed projects in the OpenGrok instance.
 
 ## Prerequisites
@@ -16,8 +20,11 @@ This is a Model Context Protocol (MCP) server for [OpenGrok](https://oracle.gith
 ## Installation
 
 ```bash
-git clone https://github.com/your-username/opengrok-mcp.git
+git clone https://github.com/xiaowenzhou/opengrok-mcp.git
 cd opengrok-mcp
+# Recommended: use a virtual environment
+python3 -m venv venv
+source venv/bin/activate
 pip install -r requirements.txt
 ```
 
@@ -62,8 +69,8 @@ Add to your `claude_desktop_config.json`:
 {
   "mcpServers": {
     "opengrok": {
-      "command": "python3",
-      "args": ["/absolute/path/to/opengrok-mcp/server.py"],
+      "command": "/path/to/opengrok-mcp/venv/bin/python3",
+      "args": ["/path/to/opengrok-mcp/server.py"],
       "env": {
         "OPENGROK_URL": "http://your-server:8080/source"
       }
@@ -78,7 +85,8 @@ You can test the server locally by setting the environment variable and running 
 
 ```bash
 export OPENGROK_URL="http://your-server:8080/source"
-python3 server.py
+# Using the test client script
+./venv/bin/python3 test_client.py
 ```
 *Note: The server communicates via JSON-RPC over Standard Input/Output.*
 
