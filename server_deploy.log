@@ -1,0 +1,3 @@
+usage: server.py [-h] [--transport {stdio,sse,streamable-http}] [--port PORT]
+                 [--host HOST]
+server.py: error: argument --transport: invalid choice: 'http' (choose from 'stdio', 'sse', 'streamable-http')

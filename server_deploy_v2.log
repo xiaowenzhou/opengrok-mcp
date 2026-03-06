@@ -1,0 +1,6 @@
+INFO:     Started server process [2307310]
+INFO:     Waiting for application startup.
+INFO:mcp.server.streamable_http_manager:StreamableHTTP session manager started
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8081 (Press CTRL+C to quit)
+INFO:     127.0.0.1:55798 - "GET /status HTTP/1.1" 404 Not Found

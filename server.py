@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import logging
 import argparse
@@ -7,18 +8,31 @@ import httpx
 from mcp.server.fastmcp import FastMCP
 import mcp.types as types
 
+
+def clean_html(text: str) -> str:
+    """Remove all HTML tags from text."""
+    return re.sub(r"<[^>]+>", "", text)
+
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("opengrok-mcp")
 
 # Configuration from environment variables
-OPENGROK_URL = os.environ.get("OPENGROK_URL", "http://localhost:8080/source").rstrip("/")
+OPENGROK_URL = os.environ.get("OPENGROK_URL", "http://localhost:8080/source").rstrip(
+    "/"
+)
 OPENGROK_API_URL = f"{OPENGROK_URL}/api/v1"
 
 # Initialize FastMCP
 mcp = FastMCP("opengrok-mcp")
 
-async def fetch_opengrok_api(endpoint: str, params: Optional[Dict[str, Any]] = None, headers: Optional[Dict[str, str]] = None) -> Any:
+
+async def fetch_opengrok_api(
+    endpoint: str,
+    params: Optional[Dict[str, Any]] = None,
+    headers: Optional[Dict[str, str]] = None,
+) -> Any:
     """Helper to make GET requests to OpenGrok API."""
     url = f"{OPENGROK_API_URL}{endpoint}"
     async with httpx.AsyncClient(timeout=30.0) as client:
@@ -29,11 +43,16 @@ async def fetch_opengrok_api(endpoint: str, params: Optional[Dict[str, Any]] = N
                 return response.json()
             return response.text
         except httpx.HTTPStatusError as e:
-            logger.error(f"HTTP error {e.response.status_code} for {url}: {e.response.text}")
-            raise Exception(f"OpenGrok API error: {e.response.status_code} - {e.response.text}")
+            logger.error(
+                f"HTTP error {e.response.status_code} for {url}: {e.response.text}"
+            )
+            raise Exception(
+                f"OpenGrok API error: {e.response.status_code} - {e.response.text}"
+            )
         except Exception as e:
             logger.error(f"Error fetching {url}: {str(e)}")
             raise Exception(f"Failed to connect to OpenGrok: {str(e)}")
+
 
 @mcp.tool()
 async def search(
@@ -42,11 +61,11 @@ async def search(
     refs: Optional[str] = None,
     path: Optional[str] = None,
     projects: Optional[str] = None,
-    maxresults: int = 100
+    maxresults: int = 100,
 ) -> str:
     """
     Search for source code in OpenGrok using various fields.
-    
+
     Args:
         full: Full text search query
         defs: Symbol definitions
@@ -61,12 +80,12 @@ async def search(
         "symbol": refs,
         "path": path,
         "projects": projects,
-        "maxresults": maxresults
+        "maxresults": maxresults,
     }
     api_params = {k: v for k, v in api_params.items() if v is not None}
-    
+
     results = await fetch_opengrok_api("/search", params=api_params)
-    
+
     # 改进搜索输出：结构化展示结果，方便 LLM 阅读
     if not results or "results" not in results:
         return "No results found."
@@ -80,31 +99,35 @@ async def search(
         for hit in hits:
             line_num = hit.get("lineNumber", "?")
             line_text = hit.get("line", "").strip()
-            # Clean up Lucene bold tags if present
-            line_text = line_text.replace("<b>", "").replace("</b>", "")
+            line_text = clean_html(line_text)
             tag = hit.get("tag", "")
             output.append(f"- Line {line_num} ({tag}): `{line_text}`")
         output.append("")
 
     return "\n".join(output)
 
+
 @mcp.tool()
 async def get_file(path: str) -> str:
     """
     Retrieve the raw content of a specific file from OpenGrok.
-    
+
     Args:
         path: Path of the file relative to source root (e.g., /project/src/main.c)
     """
     headers = {"Accept": "text/plain"}
-    content = await fetch_opengrok_api("/file/content", params={"path": path}, headers=headers)
+    content = await fetch_opengrok_api(
+        "/file/content", params={"path": path}, headers=headers
+    )
     return content
+
 
 @mcp.tool()
 async def get_defs(path: str) -> str:
     """Get symbol definitions for a specific file."""
     results = await fetch_opengrok_api("/file/defs", params={"path": path})
     return json.dumps(results, indent=2)
+
 
 @mcp.tool()
 async def get_history(path: str, withFiles: bool = False, max: int = 1000) -> str:
@@ -113,11 +136,13 @@ async def get_history(path: str, withFiles: bool = False, max: int = 1000) -> st
     results = await fetch_opengrok_api("/history", params=api_params)
     return json.dumps(results, indent=2)
 
+
 @mcp.tool()
 async def get_annotations(path: str) -> str:
     """Get blame/annotation information for a file."""
     results = await fetch_opengrok_api("/annotation", params={"path": path})
     return json.dumps(results, indent=2)
+
 
 @mcp.tool()
 async def list_directory(path: str) -> str:
@@ -125,35 +150,41 @@ async def list_directory(path: str) -> str:
     results = await fetch_opengrok_api("/list", params={"path": path})
     return json.dumps(results, indent=2)
 
+
 @mcp.tool()
 async def list_projects() -> str:
     """List all projects indexed in this OpenGrok instance."""
     projects = await fetch_opengrok_api("/projects")
     return json.dumps(projects, indent=2)
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="OpenGrok MCP Server")
     parser.add_argument(
         "--transport",
-        choices=["stdio", "sse", "http"],
+        choices=["stdio", "sse", "streamable-http"],
         default=os.environ.get("MCP_TRANSPORT", "stdio"),
         help="Transport type (default: stdio)",
     )
-    parser.add_argument("--port", type=int, default=int(os.environ.get("PORT", 8000)), help="Port (default: 8000)")
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=int(os.environ.get("PORT", 8000)),
+        help="Port (default: 8000)",
+    )
+    parser.add_argument(
+        "--host",
+        type=str,
+        default=os.environ.get("HOST", "0.0.0.0"),
+        help="Host to bind (default: 0.0.0.0)",
+    )
 
     args = parser.parse_args()
 
-    # Note: FastMCP run() uses the PORT environment variable for HTTP/SSE transports.
-    # But it seems to prefer its own defaults or some specific environment key.
-    # Looking at the logs, it consistently binds to 8000.
-    os.environ["PORT"] = str(args.port)
-    os.environ["MCP_PORT"] = str(args.port) # Try another possible key
+    mcp.settings.host = args.host
+    mcp.settings.port = args.port
 
-    if args.transport == "http":
-        import uvicorn
-        from mcp.server.fastmcp.server import FastMCP
-        # If mcp.run() is too rigid, we can try to manually invoke the runner if needed,
-        # but for now let's stick to the standard way and assume user will manage 8000.
+    if args.transport == "streamable-http":
         mcp.run(transport="streamable-http")
     elif args.transport == "sse":
         mcp.run(transport="sse")
