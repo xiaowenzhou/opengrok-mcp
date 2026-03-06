@@ -30,17 +30,26 @@ pip install -r requirements.txt
 
 ## Configuration
 
-The server is configured via environment variables:
+The server is configured via environment variables and command-line arguments:
+
+### Environment Variables
 
 | Variable | Description | Default |
 | :--- | :--- | :--- |
 | `OPENGROK_URL` | Base URL of your OpenGrok instance (including `/source`) | `http://localhost:8080/source` |
+| `MCP_TRANSPORT` | Default transport mode (`stdio` or `sse`) | `stdio` |
+
+### Command-line Arguments
+
+- `--transport`: Choose between `stdio` and `sse`.
+- `--host`: Host to bind the SSE server (default: `0.0.0.0`).
+- `--port`: Port to bind the SSE server (default: `8000`).
 
 ## Usage
 
 ### Integration with MCP Clients
 
-#### OpenClaw
+#### OpenClaw (stdio)
 
 Add to your `openclaw.json`:
 
@@ -61,7 +70,7 @@ Add to your `openclaw.json`:
 }
 ```
 
-#### Claude Desktop
+#### Claude Desktop (stdio)
 
 Add to your `claude_desktop_config.json`:
 
@@ -79,16 +88,33 @@ Add to your `claude_desktop_config.json`:
 }
 ```
 
+#### HTTP (SSE) Mode
+
+To run as a standalone HTTP server:
+
+```bash
+./venv/bin/python3 server.py --transport sse --port 8000
+```
+
+Then connect your client to `http://your-host:8000/sse`.
+
 ## Development and Testing
 
 You can test the server locally by setting the environment variable and running it directly:
 
 ```bash
 export OPENGROK_URL="http://your-server:8080/source"
-# Using the test client script
+
+# Test stdio mode
 ./venv/bin/python3 test_client.py
+
+# Test HTTP (SSE) mode
+# Terminal 1:
+./venv/bin/python3 server.py --transport sse --port 8001
+# Terminal 2:
+./venv/bin/python3 test_http.py
 ```
-*Note: The server communicates via JSON-RPC over Standard Input/Output.*
+*Note: The server communicates via JSON-RPC over Standard Input/Output or HTTP SSE.*
 
 ## License
 
