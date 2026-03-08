@@ -1,20 +1,25 @@
 import asyncio
+import os
+
 import httpx
 
-async def raw_http_test():
-    print("Performing raw HTTP probe on http://localhost:8081...")
-    async with httpx.AsyncClient() as client:
+
+MCP_BASE_URL = os.environ.get("MCP_BASE_URL", "http://localhost:8081").rstrip("/")
+
+
+async def raw_http_test() -> None:
+    print(f"Performing raw HTTP probe on {MCP_BASE_URL} ...")
+    async with httpx.AsyncClient(timeout=10.0) as client:
         try:
-            # MCP Streamable HTTP uses a specific handshake or endpoint structure.
-            # Even a GET on root or a common endpoint should tell us if it's alive.
-            response = await client.get("http://localhost:8081/status")
-            print(f"Status endpoint: {response.status_code}")
-            
-            # Try to list tools via the standard MCP HTTP JSON-RPC POST (if applicable)
-            # but usually, we just need to see if the server responds to confirm deployment.
-            print("Server is active and listening.")
-        except Exception as e:
-            print(f"Probe failed: {e}")
+            response = await client.get(MCP_BASE_URL)
+            print(f"Root endpoint status: {response.status_code}")
+            if response.status_code in (200, 404, 405):
+                print("Server is active and listening.")
+            else:
+                print("Server responded, but status is unexpected.")
+        except Exception as exc:
+            print(f"Probe failed: {exc}")
+
 
 if __name__ == "__main__":
     asyncio.run(raw_http_test())

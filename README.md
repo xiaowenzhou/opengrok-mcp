@@ -1,121 +1,91 @@
-# OpenGrok MCP Server 🔍
+# OpenGrok MCP Server
 
-This is a Model Context Protocol (MCP) server for [OpenGrok](https://oracle.github.io/opengrok/), allowing AI assistants (like Claude, ChatGPT, or OpenClaw agents) to search and read source code indexed by OpenGrok.
+MCP server for [OpenGrok](https://oracle.github.io/opengrok/) that lets AI agents search and read indexed source code.
 
 ## Features
 
-- **`search`**: Multi-dimensional search across projects (full text, definitions, symbols, paths).
-- **`get_file`**: Retrieve raw content of any file in the index.
-- **`get_defs`**: Get symbol definitions for a specific file (functions, variables, etc.).
-- **`get_history`**: Get revision history for a file or directory.
-- **`get_annotations`**: Get blame/annotation information (line-by-line author/revision).
-- **`list_directory`**: List entries in a directory (like an explorer).
-- **`list_projects`**: Discover all indexed projects in the OpenGrok instance.
+- `search`: full text / definitions / references / path queries.
+- `search_enhanced`: filtered + paginated search with optional summarization.
+- `search_symbols_global`: cross-project symbol lookup.
+- `get_file`: fetch raw file content.
+- `get_defs`: fetch symbol definitions of a file.
+- `get_history`: fetch history for file or directory.
+- `get_annotations`: fetch blame/annotation data.
+- `list_directory`: list directory entries.
+- `list_projects`: list indexed projects.
+- `compare_revisions`: unified diff between two revisions.
+- `get_suggestions`: query suggestions/autocomplete.
+- `health_check`: runtime config + OpenGrok reachability.
 
-## Prerequisites
+## Performance Optimizations
 
-- **Python 3.10+**
-- An active OpenGrok instance with REST API enabled (default in modern versions).
+- Reuses a single async `httpx` client (connection pooling + keep-alive).
+- Retries transient HTTP/network failures with exponential backoff.
+- Optional in-memory TTL cache for repeated OpenGrok API reads.
+- Parameter clamping to avoid accidental overly large requests.
 
-## Installation
+## Requirements
+
+- Python 3.10+
+- OpenGrok instance with REST API enabled
+
+Install:
 
 ```bash
-git clone https://github.com/xiaowenzhou/opengrok-mcp.git
-cd opengrok-mcp
-# Recommended: use a virtual environment
-python3 -m venv venv
-source venv/bin/activate
 pip install -r requirements.txt
 ```
 
 ## Configuration
 
-The server is configured via environment variables and command-line arguments:
+### Core
 
-### Environment Variables
+- `OPENGROK_URL` (default: `http://localhost:8080/source`)
+- `MCP_TRANSPORT` (default: `stdio`; options: `stdio`, `sse`, `streamable-http`)
+- `HOST` (default: `0.0.0.0`)
+- `PORT` or `MCP_PORT` (default: `8081`)
 
-| Variable | Description | Default |
-| :--- | :--- | :--- |
-| `OPENGROK_URL` | Base URL of your OpenGrok instance (including `/source`) | `http://localhost:8080/source` |
-| `MCP_TRANSPORT` | Default transport mode (`stdio` or `sse`) | `stdio` |
+### HTTP Client
 
-### Command-line Arguments
+- `OPENGROK_TIMEOUT_SECONDS` (default: `30`)
+- `OPENGROK_HTTP_RETRIES` (default: `2`)
+- `OPENGROK_HTTP_RETRY_BACKOFF_SECONDS` (default: `0.25`)
+- `OPENGROK_HTTP_MAX_CONNECTIONS` (default: `100`)
+- `OPENGROK_HTTP_MAX_KEEPALIVE_CONNECTIONS` (default: `20`)
 
-- `--transport`: Choose between `stdio` and `sse`.
-- `--host`: Host to bind the SSE server (default: `0.0.0.0`).
-- `--port`: Port to bind the SSE server (default: `8000`).
+### Cache and Limits
 
-## Usage
+- `OPENGROK_CACHE_TTL_SECONDS` (default: `10`; set `0` to disable cache)
+- `OPENGROK_CACHE_MAX_ENTRIES` (default: `256`)
+- `OPENGROK_MAX_RESULTS_CAP` (default: `500`)
 
-### Integration with MCP Clients
+## Run
 
-#### OpenClaw (stdio)
-
-Add to your `openclaw.json`:
-
-```json
-"plugins": {
-  "entries": {
-    "opengrok-mcp": {
-      "enabled": true,
-      "config": {
-        "command": "python3",
-        "args": ["/path/to/opengrok-mcp/server.py"],
-        "env": {
-          "OPENGROK_URL": "http://your-server:8080/source"
-        }
-      }
-    }
-  }
-}
-```
-
-#### Claude Desktop (stdio)
-
-Add to your `claude_desktop_config.json`:
-
-```json
-{
-  "mcpServers": {
-    "opengrok": {
-      "command": "/path/to/opengrok-mcp/venv/bin/python3",
-      "args": ["/path/to/opengrok-mcp/server.py"],
-      "env": {
-        "OPENGROK_URL": "http://your-server:8080/source"
-      }
-    }
-  }
-}
-```
-
-#### HTTP (SSE) Mode
-
-To run as a standalone HTTP server:
+### stdio
 
 ```bash
-./venv/bin/python3 server.py --transport sse --port 8000
+python server.py --transport stdio
 ```
 
-Then connect your client to `http://your-host:8000/sse`.
-
-## Development and Testing
-
-You can test the server locally by setting the environment variable and running it directly:
+### SSE
 
 ```bash
-export OPENGROK_URL="http://your-server:8080/source"
-
-# Test stdio mode
-./venv/bin/python3 test_client.py
-
-# Test HTTP (SSE) mode
-# Terminal 1:
-./venv/bin/python3 server.py --transport sse --port 8001
-# Terminal 2:
-./venv/bin/python3 test_http.py
+python server.py --transport sse --host 0.0.0.0 --port 8081
 ```
-*Note: The server communicates via JSON-RPC over Standard Input/Output or HTTP SSE.*
 
-## License
+### Streamable HTTP
 
-MIT
+```bash
+python server.py --transport streamable-http --host 0.0.0.0 --port 8081
+```
+
+## Quick Checks
+
+- `python test_probe.py`
+- `python test_http.py`
+- `python test_deploy.py`
+
+Optional test overrides:
+
+- `MCP_BASE_URL` (default `http://localhost:8081`)
+- `MCP_SSE_URL` (default `${MCP_BASE_URL}/sse`)
+- `MCP_STREAMABLE_HTTP_URL` (default `${MCP_BASE_URL}/mcp`)

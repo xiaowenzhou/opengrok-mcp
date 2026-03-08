@@ -1,26 +1,33 @@
 import asyncio
-import httpx
+import os
+
+from mcp.client.session import ClientSession
 from mcp.client.sse import sse_client
 
-async def test_http():
-    print("Testing OpenGrok MCP HTTP Server...")
+
+MCP_BASE_URL = os.environ.get("MCP_BASE_URL", "http://localhost:8081").rstrip("/")
+MCP_SSE_URL = os.environ.get("MCP_SSE_URL", f"{MCP_BASE_URL}/sse")
+
+
+async def test_http() -> None:
+    print(f"Testing OpenGrok MCP SSE endpoint: {MCP_SSE_URL}")
     try:
-        async with sse_client("http://localhost:8001/sse") as (read, write):
-            from mcp.client.session import ClientSession
+        async with sse_client(MCP_SSE_URL) as (read, write):
             async with ClientSession(read, write) as session:
                 print("Initializing session...")
                 await session.initialize()
-                
+
                 print("\nListing tools...")
                 tools = await session.list_tools()
-                print(f"Available tools: {[t.name for t in tools.tools]}")
-                
-                print("\nCalling list_projects...")
-                result = await session.call_tool("list_projects", {})
-                print(f"Result (truncated): {result.content[0].text[:200]}...")
+                tool_names = [tool.name for tool in tools.tools]
+                print(f"Available tools ({len(tool_names)}): {tool_names}")
 
-    except Exception as e:
-        print(f"Connection failed (is the server running?): {e}")
+                print("\nCalling health_check...")
+                health = await session.call_tool("health_check", {})
+                print(health.content[0].text[:300])
+    except Exception as exc:
+        print(f"Connection failed (is SSE transport enabled?): {exc}")
+
 
 if __name__ == "__main__":
     asyncio.run(test_http())
