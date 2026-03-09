@@ -2,9 +2,10 @@ import argparse
 import asyncio
 import logging
 import os
-from typing import Tuple
+from typing import List, Tuple
 
 from mcp.server.fastmcp import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
 
 from .api_client import OpenGrokApiClient
 from .config import ServerConfig
@@ -22,11 +23,56 @@ def configure_logging(log_level: str) -> logging.Logger:
     return logging.getLogger(LOGGER_NAME)
 
 
-def create_app() -> Tuple[FastMCP, OpenGrokApiClient, ServerConfig, logging.Logger]:
+def parse_csv_env(name: str) -> List[str]:
+    raw = os.environ.get(name, "")
+    if not raw:
+        return []
+    return [item.strip() for item in raw.split(",") if item.strip()]
+
+
+def read_bool_env(name: str, default: bool = False) -> bool:
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def build_transport_security(host: str, port: int) -> TransportSecuritySettings:
+    if read_bool_env("MCP_DISABLE_DNS_REBINDING_PROTECTION", default=False):
+        return TransportSecuritySettings(enable_dns_rebinding_protection=False)
+
+    allowed_hosts = set(parse_csv_env("MCP_ALLOWED_HOSTS"))
+    allowed_origins = set(parse_csv_env("MCP_ALLOWED_ORIGINS"))
+
+    allowed_hosts.update({"127.0.0.1:*", "localhost:*", "[::1]:*"})
+    allowed_origins.update(
+        {"http://127.0.0.1:*", "http://localhost:*", "http://[::1]:*"}
+    )
+
+    # For non-wildcard bind addresses, allow the bound host by default.
+    if host not in {"0.0.0.0", "::"}:
+        allowed_hosts.add(f"{host}:*")
+        allowed_hosts.add(f"{host}:{port}")
+        allowed_origins.add(f"http://{host}:*")
+        allowed_origins.add(f"http://{host}:{port}")
+
+    return TransportSecuritySettings(
+        enable_dns_rebinding_protection=True,
+        allowed_hosts=sorted(allowed_hosts),
+        allowed_origins=sorted(allowed_origins),
+    )
+
+
+def create_app(host: str, port: int) -> Tuple[FastMCP, OpenGrokApiClient, ServerConfig, logging.Logger]:
     config = ServerConfig.from_env()
     logger = configure_logging(config.log_level)
 
-    mcp = FastMCP("opengrok-mcp")
+    mcp = FastMCP(
+        "opengrok-mcp",
+        host=host,
+        port=port,
+        transport_security=build_transport_security(host, port),
+    )
     api_client = OpenGrokApiClient(
         base_url=config.opengrok_api_url,
         timeout_seconds=config.request_timeout_seconds,
@@ -67,10 +113,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    mcp, api_client, config, logger = create_app()
-
-    mcp.settings.host = args.host
-    mcp.settings.port = args.port
+    mcp, api_client, config, logger = create_app(args.host, args.port)
 
     logger.info(
         "Starting OpenGrok MCP Server on %s:%d with transport=%s",
@@ -78,6 +121,12 @@ def main() -> None:
         args.port,
         args.transport,
     )
+    if mcp.settings.transport_security:
+        logger.info(
+            "Transport security: dns_rebinding=%s allowed_hosts=%s",
+            mcp.settings.transport_security.enable_dns_rebinding_protection,
+            ",".join(mcp.settings.transport_security.allowed_hosts),
+        )
     logger.info("OpenGrok API URL: %s", config.opengrok_api_url)
     logger.info(
         "HTTP timeout=%ss retries=%d backoff=%ss pool=%d keepalive=%d cache_ttl=%ss cache_size=%d",

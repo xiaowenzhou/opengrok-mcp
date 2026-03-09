@@ -72,6 +72,12 @@ HTTP 客户端配置：
 - `OPENGROK_CACHE_MAX_ENTRIES` (默认: `256`)
 - `OPENGROK_MAX_RESULTS_CAP` (默认: `500`)
 
+Host Header 安全校验（streamable-http / sse）：
+
+- `MCP_ALLOWED_HOSTS` 逗号分隔白名单，格式如 `192.168.12.172:*`、`example.com:8081`
+- `MCP_ALLOWED_ORIGINS` 逗号分隔 Origin 白名单，格式如 `http://192.168.12.172:*`
+- `MCP_DISABLE_DNS_REBINDING_PROTECTION` 设为 `true/1` 可关闭校验（仅内网排障时建议临时使用）
+
 ### 6. 代码结构
 
 ```text
