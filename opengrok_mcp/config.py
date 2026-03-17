@@ -57,6 +57,10 @@ class ServerConfig:
     log_level: str
     opengrok_url: str
     opengrok_api_url: str
+    opengrok_basic_auth_user: str
+    opengrok_basic_auth_password: str
+    opengrok_bearer_token: str
+    opengrok_custom_headers: str
     request_timeout_seconds: float
     http_retries: int
     http_retry_backoff_seconds: float
@@ -91,6 +95,10 @@ class ServerConfig:
             log_level=os.environ.get("LOG_LEVEL", "INFO").upper(),
             opengrok_url=opengrok_url,
             opengrok_api_url=f"{opengrok_url}/api/v1",
+            opengrok_basic_auth_user=os.environ.get("OPENGROK_BASIC_AUTH_USER", ""),
+            opengrok_basic_auth_password=os.environ.get("OPENGROK_BASIC_AUTH_PASSWORD", ""),
+            opengrok_bearer_token=os.environ.get("OPENGROK_BEARER_TOKEN", ""),
+            opengrok_custom_headers=os.environ.get("OPENGROK_CUSTOM_HEADERS", ""),
             request_timeout_seconds=read_float_env(
                 "OPENGROK_TIMEOUT_SECONDS",
                 default=30.0,

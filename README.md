@@ -65,6 +65,9 @@ HTTP 客户端配置：
 - `OPENGROK_HTTP_RETRY_BACKOFF_SECONDS` (默认: `0.25`)
 - `OPENGROK_HTTP_MAX_CONNECTIONS` (默认: `100`)
 - `OPENGROK_HTTP_MAX_KEEPALIVE_CONNECTIONS` (默认: `20`)
+- `OPENGROK_BASIC_AUTH_USER` / `OPENGROK_BASIC_AUTH_PASSWORD` (可选，OpenGrok 启用 Basic Auth 时使用)
+- `OPENGROK_BEARER_TOKEN` (可选，OpenGrok 或反向代理使用 Bearer Token 时使用)
+- `OPENGROK_CUSTOM_HEADERS` (可选，自定义请求头，格式: `Key1:Value1,Key2:Value2`)
 
 缓存与限制：
 
@@ -108,6 +111,39 @@ python test_deploy.py
 - `MCP_BASE_URL` (默认 `http://localhost:8081`)
 - `MCP_SSE_URL` (默认 `${MCP_BASE_URL}/sse`)
 - `MCP_STREAMABLE_HTTP_URL` (默认 `${MCP_BASE_URL}/mcp`)
+
+### 8. OpenGrok API 反向代理配置
+
+OpenGrok REST API 默认仅允许 localhost 访问，远程调用会返回 401。如果 MCP Server 与 OpenGrok 不在同一台机器上，需要通过 nginx 反向代理来解决：
+
+```nginx
+server {
+    listen 8080;
+    server_name your-server-ip;
+
+    location /opengrok/api/ {
+        proxy_pass http://127.0.0.1:8080/opengrok/api/;
+        proxy_set_header Host 127.0.0.1:8080;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+
+    location /opengrok/ {
+        proxy_pass http://127.0.0.1:8080/opengrok/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+}
+```
+
+关键点：`/opengrok/api/` 的 `proxy_set_header Host` 必须设为 `127.0.0.1:8080`（即 Tomcat 监听地址），这样 OpenGrok 会认为请求来自 localhost，从而通过鉴权。
+
+然后将 `OPENGROK_URL` 指向 nginx 的地址：
+
+```bash
+export OPENGROK_URL="http://your-server-ip:nginx-port/opengrok"
+```
 
 ## English Notes
 

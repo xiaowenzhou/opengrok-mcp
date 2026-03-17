@@ -20,6 +20,8 @@ class OpenGrokApiClient:
         max_keepalive_connections: int,
         cache_ttl_seconds: float,
         cache_max_entries: int,
+        default_headers: Optional[Dict[str, str]] = None,
+        basic_auth: Optional[Tuple[str, str]] = None,
         logger: Optional[logging.Logger] = None,
     ) -> None:
         self.base_url = f"{base_url.rstrip('/')}/"
@@ -30,6 +32,8 @@ class OpenGrokApiClient:
         self.max_keepalive_connections = max_keepalive_connections
         self.cache_ttl_seconds = cache_ttl_seconds
         self.cache_max_entries = cache_max_entries
+        self.default_headers = default_headers or {}
+        self.basic_auth = basic_auth
         self.logger = logger or logging.getLogger("opengrok-mcp")
 
         self._client: Optional[httpx.AsyncClient] = None
@@ -51,6 +55,8 @@ class OpenGrokApiClient:
                         limits=limits,
                         timeout=timeout,
                         follow_redirects=True,
+                        headers=self.default_headers,
+                        auth=self.basic_auth,
                     )
         return self._client
 
@@ -113,6 +119,18 @@ class OpenGrokApiClient:
                 return payload
             except httpx.HTTPStatusError as exc:
                 status = exc.response.status_code
+
+                if status in (401, 403):
+                    detail = exc.response.text[:300]
+                    self.logger.error(
+                        "Authentication failed (%d) for %s: %s", status, endpoint, detail
+                    )
+                    raise RuntimeError(
+                        f"Authentication failed ({status}) for /{normalized_endpoint}. "
+                        f"Check OPENGROK_BEARER_TOKEN, OPENGROK_BASIC_AUTH_USER/PASSWORD, "
+                        f"or OPENGROK_CUSTOM_HEADERS. Detail: {detail}"
+                    ) from exc
+
                 retryable_status = status == 429 or status >= 500
                 if retryable_status and attempt < self.retries:
                     delay = self.retry_backoff_seconds * (2**attempt)

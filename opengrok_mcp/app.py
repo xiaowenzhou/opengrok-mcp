@@ -73,6 +73,25 @@ def create_app(host: str, port: int) -> Tuple[FastMCP, OpenGrokApiClient, Server
         port=port,
         transport_security=build_transport_security(host, port),
     )
+    default_headers = {
+        "Accept": "application/json",
+    }
+    basic_auth = None
+    if config.opengrok_bearer_token:
+        default_headers["Authorization"] = f"Bearer {config.opengrok_bearer_token}"
+    elif config.opengrok_basic_auth_user:
+        basic_auth = (
+            config.opengrok_basic_auth_user,
+            config.opengrok_basic_auth_password,
+        )
+
+    if config.opengrok_custom_headers:
+        for pair in config.opengrok_custom_headers.split(","):
+            pair = pair.strip()
+            if ":" in pair:
+                key, value = pair.split(":", 1)
+                default_headers[key.strip()] = value.strip()
+
     api_client = OpenGrokApiClient(
         base_url=config.opengrok_api_url,
         timeout_seconds=config.request_timeout_seconds,
@@ -82,6 +101,8 @@ def create_app(host: str, port: int) -> Tuple[FastMCP, OpenGrokApiClient, Server
         max_keepalive_connections=config.http_max_keepalive_connections,
         cache_ttl_seconds=config.cache_ttl_seconds,
         cache_max_entries=config.cache_max_entries,
+        default_headers=default_headers,
+        basic_auth=basic_auth,
         logger=logger,
     )
     register_tools(mcp, api_client, config)
@@ -128,6 +149,12 @@ def main() -> None:
             ",".join(mcp.settings.transport_security.allowed_hosts),
         )
     logger.info("OpenGrok API URL: %s", config.opengrok_api_url)
+    logger.info(
+        "OpenGrok auth: bearer=%s basic=%s custom_headers=%s",
+        "enabled" if bool(config.opengrok_bearer_token) else "disabled",
+        "enabled" if bool(config.opengrok_basic_auth_user) else "disabled",
+        "enabled" if bool(config.opengrok_custom_headers) else "disabled",
+    )
     logger.info(
         "HTTP timeout=%ss retries=%d backoff=%ss pool=%d keepalive=%d cache_ttl=%ss cache_size=%d",
         config.request_timeout_seconds,

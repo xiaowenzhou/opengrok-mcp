@@ -409,7 +409,22 @@ def register_tools(mcp: FastMCP, api_client: OpenGrokApiClient, config: ServerCo
                 elif isinstance(projects.get("items"), list):
                     payload["project_count"] = len(projects["items"])
             return json.dumps(payload, indent=2)
+        except RuntimeError as exc:
+            error_msg = str(exc)
+            payload["opengrok_reachable"] = False
+            if "Authentication failed" in error_msg:
+                payload["error_type"] = "authentication"
+                payload["error"] = error_msg
+                payload["hint"] = (
+                    "Set OPENGROK_BEARER_TOKEN, OPENGROK_BASIC_AUTH_USER/PASSWORD, "
+                    "or OPENGROK_CUSTOM_HEADERS to match your nginx auth configuration."
+                )
+            else:
+                payload["error_type"] = "connection"
+                payload["error"] = error_msg
+            return json.dumps(payload, indent=2)
         except Exception as exc:
             payload["opengrok_reachable"] = False
+            payload["error_type"] = "unknown"
             payload["error"] = str(exc)
             return json.dumps(payload, indent=2)
